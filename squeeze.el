@@ -30,14 +30,34 @@
   "Major mode for controlling Squeezebox Servers.\\<squeeze-control-mode-map>")
 
 (defun squeeze-update-state (string)
-  (cond
-   ((string-match "^players 0" string)
-    (setq squeeze-players (squeeze-parse-players-line string))))
+  (dolist (line (split-string string "\n"))
+    (squeeze-update-state-from-line line))
   string)
 
+(defun squeeze-update-state-from-line (string)
+  (cond
+   ((string-match "^players 0" string)
+    (setq squeeze-players (squeeze-parse-players-line string)))
+   ((string-match "^\\([0-9a-f][0-9a-f]%3A[0-9a-f][0-9a-f]%3A[0-9a-f][0-9a-f]%3A[0-9a-f][0-9a-f]%3A[0-9a-f][0-9a-f]%3A[0-9a-f][0-9a-f]\\) power \\([01]\\)" string)
+    (let ((state (match-string 2 string))
+          (id (url-unhex-string (match-string 1 string)))
+          player)
+      (dolist (p squeeze-players)
+        (when (string= id (squeeze-player-playerid p))
+          (setq player p)
+          (return)))
+      (setf (squeeze-player-power player) state)))))
+
 (defface squeeze-player-face
-  '((t :weight bold))
+  '((t))
   "Face for displaying players")
+
+(defface squeeze-player-on-face
+  '((t :weight bold))
+  "Face for displaying players which are on")
+(defface squeeze-player-off-face
+  '((t :weight light))
+  "Face for displaying players which are on")
 
 (defvar squeeze-players ())
 
@@ -51,10 +71,19 @@
   (interactive)
   (unless id
     (setq id (get-text-property (point) 'squeeze-playerid)))
-  (comint-send-string (get-buffer-process "*squeeze*") (format "%s power ?\n" id)))
+  (comint-send-string (get-buffer-process "*squeeze*") (format "%s power ?\n" id))
+  (accept-process-output (get-buffer-process "*squeeze*")))
+
+(defun squeeze-control-player-face (player)
+  (let ((power (squeeze-player-power player)))
+    (cond ((string= power "1") 'squeeze-player-on-face)
+          ((string= power "0") 'squeeze-player-off-face)
+          (t 'squeeze-player-face))))
 
 (defun squeeze-control-display-players ()
   (interactive)
+  (dolist (player squeeze-players)
+    (squeeze-control-query-power (squeeze-player-playerid player)))
   (let ((players squeeze-players))
     (with-current-buffer (get-buffer-create "*squeeze-control*")
       (squeeze-control-mode)
@@ -62,13 +91,13 @@
       (erase-buffer)
       (dolist (player players)
         (insert (propertize (squeeze-player-name player)
-                            'face 'squeeze-player-face
+                            'face (squeeze-control-player-face player)
                             'squeeze-playerid (squeeze-player-playerid player))
                 "\n"))
       (read-only-mode 1))))
 
 (cl-defstruct (squeeze-player (:constructor squeeze-make-player))
-  playerindex playerid uuid ip name model isplayer displaytype canpoweroff connected)
+  playerindex playerid uuid ip name model isplayer displaytype canpoweroff connected power)
 
 (defun squeeze-string-plistify (string start end)
   (save-match-data
