@@ -75,7 +75,7 @@
     (let (result)
       (loop
        (message "start: %d" start)
-       (if (string-match "\\([a-z]+\\)%3A\\([^ ]+\\)" string start)
+       (if (string-match "\\([a-z]+\\)%3A\\([^ \n]+\\)" string start)
            (let ((mend (match-end 0)))
              (when (> mend end)
                (return))
