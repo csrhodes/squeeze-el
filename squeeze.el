@@ -23,43 +23,61 @@
 (defvar squeeze-control-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "SPC") 'squeeze-control-toggle-power)
-    (define-key map (kbd "g") 'squeeze-control-display-players)
+    (define-key map (kbd "g") 'squeeze-control-refresh)
     map))
 
 (define-derived-mode squeeze-control-mode special-mode "SqueezeControl"
   "Major mode for controlling Squeezebox Servers.\\<squeeze-control-mode-map>")
 
 (defun squeeze-update-state (string)
-  (dolist (line (split-string string "\n"))
-    (squeeze-update-state-from-line line))
+  (let (done-something)
+    (dolist (line (split-string string "\n"))
+      (when (squeeze-update-state-from-line line)
+        (setq done-something t))))
+  (squeeze-control-display-players)
   string)
 
 (defun squeeze-update-state-from-line (string)
   (cond
    ((string-match "^players 0" string)
-    (setq squeeze-players (squeeze-parse-players-line string)))
-   ((string-match "^\\([0-9a-f][0-9a-f]%3A[0-9a-f][0-9a-f]%3A[0-9a-f][0-9a-f]%3A[0-9a-f][0-9a-f]%3A[0-9a-f][0-9a-f]%3A[0-9a-f][0-9a-f]\\) power \\([01]\\)" string)
-    (let ((state (match-string 2 string))
+    (setq squeeze-players (squeeze-parse-players-line string))
+    t)
+   ((string-match "^\\([0-9a-f][0-9a-f]%3A[0-9a-f][0-9a-f]%3A[0-9a-f][0-9a-f]%3A[0-9a-f][0-9a-f]%3A[0-9a-f][0-9a-f]%3A[0-9a-f][0-9a-f]\\) power\\( \\([01]\\)\\)?" string)
+    (let ((state (match-string 3 string))
           (id (url-unhex-string (match-string 1 string)))
           player)
       (dolist (p squeeze-players)
         (when (string= id (squeeze-player-playerid p))
           (setq player p)
           (return)))
-      (setf (squeeze-player-power player) state)))))
+      (if state
+          (setf (squeeze-player-power player) state)
+        (let ((current (squeeze-player-power player)))
+          (setf (squeeze-player-power player)
+                (cond ((string= current "0") "1")
+                      ((string= current "1") "0"))))))
+    t)))
 
 (defface squeeze-player-face
   '((t))
-  "Face for displaying players")
-
+  "Face for displaying players"
+  :group 'squeeze)
 (defface squeeze-player-on-face
   '((t :weight bold))
-  "Face for displaying players which are on")
+  "Face for displaying players which are on"
+  :inherit 'squeeze-player-face
+  :group 'squeeze)
 (defface squeeze-player-off-face
   '((t :weight light))
-  "Face for displaying players which are on")
+  "Face for displaying players which are off"
+  :inherit 'squeeze-player-face
+  :group 'squeeze)
 
 (defvar squeeze-players ())
+
+(defun squeeze-control-query-players ()
+  (interactive)
+  (comint-send-string (get-buffer-process "*squeeze*") (format "players ?\n")))
 
 (defun squeeze-control-toggle-power (&optional id)
   (interactive)
@@ -71,8 +89,7 @@
   (interactive)
   (unless id
     (setq id (get-text-property (point) 'squeeze-playerid)))
-  (comint-send-string (get-buffer-process "*squeeze*") (format "%s power ?\n" id))
-  (accept-process-output (get-buffer-process "*squeeze*")))
+  (comint-send-string (get-buffer-process "*squeeze*") (format "%s power ?\n" id)))
 
 (defun squeeze-control-player-face (player)
   (let ((power (squeeze-player-power player)))
@@ -80,10 +97,14 @@
           ((string= power "0") 'squeeze-player-off-face)
           (t 'squeeze-player-face))))
 
+(defun squeeze-control-refresh ()
+  (interactive)
+  (squeeze-control-query-players)
+  (dolist (player squeeze-players)
+    (squeeze-control-query-power (squeeze-player-playerid player))))
+
 (defun squeeze-control-display-players ()
   (interactive)
-  (dolist (player squeeze-players)
-    (squeeze-control-query-power (squeeze-player-playerid player)))
   (let ((players squeeze-players))
     (with-current-buffer (get-buffer-create "*squeeze-control*")
       (squeeze-control-mode)
