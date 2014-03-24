@@ -61,7 +61,7 @@
 
 (defun squeeze-update-mixer-volume (player value)
   (let ((current (squeeze-player-volume player)))
-    (if (string-match "^[+-]" value)
+    (if (string-match "^[-+]" value)
         (when current
           (setf (squeeze-player-volume player) (+ current (string-to-number value))))
       (setf (squeeze-player-volume player) (string-to-number value)))))
@@ -80,8 +80,8 @@
               (player (squeeze-find-player id)))
           (squeeze-update-power player state))
         t)
-       ((string-match "^mixer volume \\([+-]?[0-9]*\\)" substring)
-        (let ((value (match-string 1 substring))
+       ((string-match "^mixer volume \\(\\(?:-\\|%2B\\)?[0-9]*\\)" substring)
+        (let ((value (url-unhex-string (match-string 1 substring)))
               (player (squeeze-find-player id)))
           (squeeze-update-mixer-volume player value))
         t))))))
