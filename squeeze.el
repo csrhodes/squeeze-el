@@ -97,6 +97,9 @@
           ((string= power "0") 'squeeze-player-off-face)
           (t 'squeeze-player-face))))
 
+(defun squeeze-control-listen ()
+  (comint-send-string (get-buffer-process "*squeeze*") (format "listen 1\n")))
+
 (defun squeeze-control-refresh ()
   (interactive)
   (squeeze-control-query-players)
@@ -207,4 +210,6 @@
   (squeeze)
   (let ((buffer (get-buffer-create "*squeeze-control*")))
     (switch-to-buffer buffer)
+    (squeeze-control-listen)
+    (squeeze-control-refresh)
     (squeeze-control-display-players)))
