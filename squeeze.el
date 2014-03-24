@@ -24,60 +24,140 @@
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "SPC") 'squeeze-control-toggle-power)
     (define-key map (kbd "g") 'squeeze-control-refresh)
+    (define-key map (kbd "+") 'squeeze-control-volume-up)
+    (define-key map (kbd "-") 'squeeze-control-volume-down)
     map))
 
 (define-derived-mode squeeze-control-mode special-mode "SqueezeControl"
   "Major mode for controlling Squeezebox Servers.\\<squeeze-control-mode-map>")
 
+(defvar squeeze-control-inhibit-display nil)
+
 (defun squeeze-update-state (string)
   (let (done-something)
     (dolist (line (split-string string "\n"))
       (when (squeeze-update-state-from-line line)
-        (setq done-something t))))
-  (squeeze-control-display-players)
+        (setq done-something t)))
+    (when done-something
+      (unless squeeze-control-inhibit-display
+        (squeeze-control-display-players))))
   string)
+
+(defconst squeeze-player-line-regexp
+  "^\\(\\(?:[0-9a-f]\\{2\\}%3A\\)\\{5\\}[0-9a-f]\\{2\\}\\) ")
+
+(defun squeeze-find-player (id)
+  (dolist (player squeeze-players)
+    (when (string= id (squeeze-player-playerid player))
+      (return player))))
+
+(defun squeeze-update-power (player state)
+  (if state
+      (setf (squeeze-player-power player) state)
+    (let ((current (squeeze-player-power player)))
+      (setf (squeeze-player-power player)
+            (cond ((string= current "0") "1")
+                  ((string= current "1") "0"))))))
+
+(defun squeeze-update-mixer-volume (player value)
+  (let ((current (squeeze-player-volume player)))
+    (if (string-match "^[+-]" value)
+        (when current
+          (setf (squeeze-player-volume player) (+ current (string-to-number value))))
+      (setf (squeeze-player-volume player) (string-to-number value)))))
 
 (defun squeeze-update-state-from-line (string)
   (cond
    ((string-match "^players 0" string)
     (setq squeeze-players (squeeze-parse-players-line string))
     t)
-   ((string-match "^\\([0-9a-f][0-9a-f]%3A[0-9a-f][0-9a-f]%3A[0-9a-f][0-9a-f]%3A[0-9a-f][0-9a-f]%3A[0-9a-f][0-9a-f]%3A[0-9a-f][0-9a-f]\\) power\\( \\([01]\\)\\)?" string)
-    (let ((state (match-string 3 string))
-          (id (url-unhex-string (match-string 1 string)))
-          player)
-      (dolist (p squeeze-players)
-        (when (string= id (squeeze-player-playerid p))
-          (setq player p)
-          (return)))
-      (if state
-          (setf (squeeze-player-power player) state)
-        (let ((current (squeeze-player-power player)))
-          (setf (squeeze-player-power player)
-                (cond ((string= current "0") "1")
-                      ((string= current "1") "0"))))))
-    t)))
+   ((string-match squeeze-player-line-regexp string)
+    (let ((substring (substring string (match-end 0)))
+          (id (url-unhex-string (match-string 1 string))))
+      (cond
+       ((string-match "^power\\(?: \\([01]\\)\\)?" substring)
+        (let ((state (match-string 1 substring))
+              (player (squeeze-find-player id)))
+          (squeeze-update-power player state))
+        t)
+       ((string-match "^mixer volume \\([+-]?[0-9]*\\)" substring)
+        (let ((value (match-string 1 substring))
+              (player (squeeze-find-player id)))
+          (squeeze-update-mixer-volume player value))
+        t))))))
 
 (defface squeeze-player-face
   '((t))
   "Face for displaying players"
   :group 'squeeze)
 (defface squeeze-player-on-face
-  '((t :weight bold))
+  '((t :weight bold :inherit squeeze-player-face))
   "Face for displaying players which are on"
-  :inherit 'squeeze-player-face
   :group 'squeeze)
 (defface squeeze-player-off-face
-  '((t :weight light))
+  '((t :weight light :inherit squeeze-player-face))
   "Face for displaying players which are off"
-  :inherit 'squeeze-player-face
   :group 'squeeze)
+
+(defface squeeze-mixer-face
+  '((t :weight bold))
+  "Face for displaying mixer information"
+  :group 'squeeze)
+(defface squeeze-mixer-muted-face
+  '((t :weight light :inherit squeeze-mixer-face))
+  "Face for displaying mixer information when muted"
+  :group 'squeeze)
+(defface squeeze-mixer-quiet-face
+  '((t :foreground "green3" :inherit squeeze-mixer-face))
+  "Face for quiet volume"
+  :group 'squeeze)
+(defface squeeze-mixer-medium-face
+  '((t :foreground "gold" :inherit squeeze-mixer-face))
+  "Face for medium volume"
+  :group 'squeeze)
+(defface squeeze-mixer-loud-face
+  '((t :foreground "OrangeRed1" :inherit squeeze-mixer-face))
+  "Face for loud volume"
+  :group 'squeeze)
+(defface squeeze-mixer-muted-quiet-face
+  '((t :inherit (squeeze-mixer-muted-face squeeze-mixer-quiet-face)))
+  "Face for quiet volume when muted")
+
+(defun squeeze-mixer-compute-bar (vol width)
+  (let* ((exact (* width (/ vol 100.0)))
+         (nfull (floor exact))
+         (frac (- exact nfull))
+         (nblank (floor (- width exact))))
+    (format "%s%s%s"
+            (make-string nfull ?█)
+            (cond ((= width (+ nfull nblank)) "")
+                  ((< frac 0.0625) " ")
+                  ((< frac 0.1875) "▏")
+                  ((< frac 0.3125) "▎")
+                  ((< frac 0.4375) "▍")
+                  ((< frac 0.5625) "▌")
+                  ((< frac 0.6875) "▋")
+                  ((< frac 0.8125) "▊")
+                  ((< frac 0.9375) "▉")
+                  (t "█"))
+            (make-string nblank ? ))))
+
+(defun squeeze-mixer-insert-bar (vol width)
+  (let ((bar (squeeze-mixer-compute-bar vol width))
+        (lo (floor (* 0.65 width)))
+        (hi (floor (* 0.9 width))))
+    (insert ?▕
+            (propertize (substring bar 0 lo) 'face 'squeeze-mixer-quiet-face)
+            (propertize (substring bar lo hi) 'face 'squeeze-mixer-medium-face)
+            (propertize (substring bar hi) 'face 'squeeze-mixer-loud-face)
+            ?▏
+            )))
 
 (defvar squeeze-players ())
 
 (defun squeeze-control-query-players ()
   (interactive)
-  (comint-send-string (get-buffer-process "*squeeze*") (format "players ?\n")))
+  (comint-send-string (get-buffer-process "*squeeze*") (format "players 0\n")))
 
 (defun squeeze-control-toggle-power (&optional id)
   (interactive)
@@ -91,6 +171,26 @@
     (setq id (get-text-property (point) 'squeeze-playerid)))
   (comint-send-string (get-buffer-process "*squeeze*") (format "%s power ?\n" id)))
 
+(defun squeeze-control-volume-up (&optional id inc)
+  (interactive)
+  (unless inc (setq inc 5))
+  (unless id
+    (setq id (get-text-property (point) 'squeeze-playerid)))
+  (comint-send-string (get-buffer-process "*squeeze*") (format "%s mixer volume %+d\n" id inc)))
+
+(defun squeeze-control-volume-down (&optional id inc)
+  (interactive)
+  (unless inc (setq inc 5))
+  (unless id
+    (setq id (get-text-property (point) 'squeeze-playerid)))
+  (comint-send-string (get-buffer-process "*squeeze*") (format "%s mixer volume %+d\n" id (- inc))))
+
+(defun squeeze-control-query-mixer-volume (&optional id)
+  (interactive)
+  (unless id
+    (setq id (get-text-property (point) 'squeeze-playerid)))
+  (comint-send-string (get-buffer-process "*squeeze*") (format "%s mixer volume ?\n" id)))
+
 (defun squeeze-control-player-face (player)
   (let ((power (squeeze-player-power player)))
     (cond ((string= power "1") 'squeeze-player-on-face)
@@ -102,9 +202,15 @@
 
 (defun squeeze-control-refresh ()
   (interactive)
-  (squeeze-control-query-players)
-  (dolist (player squeeze-players)
-    (squeeze-control-query-power (squeeze-player-playerid player))))
+  (let ((squeeze-control-inhibit-display t))
+    (squeeze-control-query-players)
+    (accept-process-output (get-buffer-process "*squeeze*"))
+    (dolist (player squeeze-players)
+      (squeeze-control-query-power (squeeze-player-playerid player))
+      (accept-process-output (get-buffer-process "*squeeze*"))
+      (squeeze-control-query-mixer-volume (squeeze-player-playerid player))
+      (accept-process-output (get-buffer-process "*squeeze*"))))
+  (squeeze-control-display-players))
 
 (defun squeeze-control-display-players ()
   (interactive)
@@ -114,20 +220,21 @@
       (read-only-mode -1)
       (erase-buffer)
       (dolist (player players)
-        (insert (propertize (squeeze-player-name player)
+        (insert (propertize (format "%20s" (squeeze-player-name player))
                             'face (squeeze-control-player-face player)
-                            'squeeze-playerid (squeeze-player-playerid player))
-                "\n"))
+                            'squeeze-playerid (squeeze-player-playerid player)))
+        (when (squeeze-player-volume player)
+          (squeeze-mixer-insert-bar (squeeze-player-volume player) 28))
+        (insert "\n"))
       (read-only-mode 1))))
 
 (cl-defstruct (squeeze-player (:constructor squeeze-make-player))
-  playerindex playerid uuid ip name model isplayer displaytype canpoweroff connected power)
+  playerindex playerid uuid ip name model isplayer displaytype canpoweroff connected power volume)
 
 (defun squeeze-string-plistify (string start end)
   (save-match-data
     (let (result)
       (loop
-       (message "start: %d" start)
        (if (string-match "\\([a-z]+\\)%3A\\([^ \n]+\\)" string start)
            (let ((mend (match-end 0)))
              (when (> mend end)
