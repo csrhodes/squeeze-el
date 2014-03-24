@@ -169,27 +169,31 @@
   (interactive)
   (unless id
     (setq id (get-text-property (point) 'squeeze-playerid)))
-  (comint-send-string (get-buffer-process "*squeeze*") (format "%s power ?\n" id)))
+  (when id
+    (comint-send-string (get-buffer-process "*squeeze*") (format "%s power ?\n" id))))
 
 (defun squeeze-control-volume-up (&optional id inc)
   (interactive)
   (unless inc (setq inc 5))
   (unless id
     (setq id (get-text-property (point) 'squeeze-playerid)))
-  (comint-send-string (get-buffer-process "*squeeze*") (format "%s mixer volume %+d\n" id inc)))
+  (when id
+    (comint-send-string (get-buffer-process "*squeeze*") (format "%s mixer volume %+d\n" id inc))))
 
 (defun squeeze-control-volume-down (&optional id inc)
   (interactive)
   (unless inc (setq inc 5))
   (unless id
     (setq id (get-text-property (point) 'squeeze-playerid)))
-  (comint-send-string (get-buffer-process "*squeeze*") (format "%s mixer volume %+d\n" id (- inc))))
+  (when id
+    (comint-send-string (get-buffer-process "*squeeze*") (format "%s mixer volume %+d\n" id (- inc)))))
 
 (defun squeeze-control-query-mixer-volume (&optional id)
   (interactive)
   (unless id
     (setq id (get-text-property (point) 'squeeze-playerid)))
-  (comint-send-string (get-buffer-process "*squeeze*") (format "%s mixer volume ?\n" id)))
+  (when id
+    (comint-send-string (get-buffer-process "*squeeze*") (format "%s mixer volume ?\n" id))))
 
 (defun squeeze-control-player-face (player)
   (let ((power (squeeze-player-power player)))
