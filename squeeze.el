@@ -143,16 +143,15 @@
                   (t "█"))
             (make-string nblank ? ))))
 
-(defun squeeze-mixer-insert-bar (vol width)
+(defun squeeze-mixer-make-bar (vol width)
   (let ((bar (squeeze-mixer-compute-bar vol width))
         (lo (floor (* 0.65 width)))
         (hi (floor (* 0.9 width))))
-    (insert ?▕
+    (concat "▕"
             (propertize (substring bar 0 lo) 'face 'squeeze-mixer-quiet-face)
             (propertize (substring bar lo hi) 'face 'squeeze-mixer-medium-face)
             (propertize (substring bar hi) 'face 'squeeze-mixer-loud-face)
-            ?▏
-            )))
+            (propertize "▏" 'intangible t))))
 
 (defvar squeeze-players ())
 
@@ -189,6 +188,10 @@
   (when id
     (comint-send-string (get-buffer-process "*squeeze*") (format "%s mixer volume %+d\n" id (- inc)))))
 
+(defun squeeze-control-volume-set (id val)
+  (interactive)
+  (comint-send-string (get-buffer-process "*squeeze*") (format "%s mixer volume %d\n" id val)))
+
 (defun squeeze-control-query-mixer-volume (&optional id)
   (interactive)
   (unless id
@@ -217,6 +220,20 @@
       (accept-process-output (get-buffer-process "*squeeze*"))))
   (squeeze-control-display-players))
 
+(defvar squeeze-control-mixer-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "RET") 'squeeze-control-mixer-foo)
+    map))
+
+(defun squeeze-control-mixer-foo ()
+  (interactive)
+  (let* ((end (next-single-property-change (point) 'keymap))
+         (start (previous-single-property-change end 'keymap))
+         (val (/ (* 100 (- (point) start)) (- end start 1)))
+         (id (get-text-property (point) 'squeeze-playerid)))
+    (message "start %d, end %d, val %d" start end val)
+    (squeeze-control-volume-set id val)))
+
 (defun squeeze-control-display-players ()
   (interactive)
   (let ((players squeeze-players))
@@ -229,8 +246,11 @@
                             'face (squeeze-control-player-face player)
                             'squeeze-playerid (squeeze-player-playerid player)))
         (when (squeeze-player-volume player)
-          (squeeze-mixer-insert-bar (squeeze-player-volume player) 28))
-        (insert "\n"))
+          (insert (propertize (squeeze-mixer-make-bar (squeeze-player-volume player) 28)
+                              'squeeze-playerid (squeeze-player-playerid player)
+                              'keymap squeeze-control-mixer-map
+                              'rear-nonsticky '(keymap))))
+        (insert (propertize "\n" 'intangible t)))
       (read-only-mode 1))))
 
 (cl-defstruct (squeeze-player (:constructor squeeze-make-player))
