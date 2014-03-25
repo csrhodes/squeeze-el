@@ -60,11 +60,12 @@
                   ((string= current "1") "0"))))))
 
 (defun squeeze-update-mixer-volume (player value)
-  (let ((current (squeeze-player-volume player)))
+  (let ((current (squeeze-player-volume player))
+        (number (string-to-number value)))
     (if (string-match "^[-+]" value)
-        (when current
-          (setf (squeeze-player-volume player) (+ current (string-to-number value))))
-      (setf (squeeze-player-volume player) (string-to-number value)))))
+        (setf (squeeze-player-volume player)
+              (and current (max 0 (min 100 (+ current number)))))
+      (setf (squeeze-player-volume player) number))))
 
 (defun squeeze-update-state-from-line (string)
   (cond
