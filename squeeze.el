@@ -222,16 +222,26 @@
 
 (defvar squeeze-control-mixer-map
   (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "RET") 'squeeze-control-mixer-foo)
+    (define-key map (kbd "RET") 'squeeze-control-mixer-set-volume)
+    (define-key map [mouse-1] 'squeeze-control-mixer-mouse-1)
     map))
 
-(defun squeeze-control-mixer-foo ()
+(defun squeeze-control-compute-volume (pos)
+  (let* ((end (next-single-property-change pos 'keymap))
+         (start (previous-single-property-change end 'keymap)))
+    (/ (* 100 (- (point) start)) (- end start 1))))
+
+(defun squeeze-control-mixer-mouse-1 (event)
+  (interactive "e")
+  (let* ((pos (cadadr event))
+         (val (squeeze-control-compute-volume pos))
+         (id (get-text-property pos 'squeeze-playerid)))
+    (squeeze-control-volume-set id val)))
+
+(defun squeeze-control-mixer-set-volume ()
   (interactive)
-  (let* ((end (next-single-property-change (point) 'keymap))
-         (start (previous-single-property-change end 'keymap))
-         (val (/ (* 100 (- (point) start)) (- end start 1)))
+  (let* ((val (squeeze-control-compute-volume (point)))
          (id (get-text-property (point) 'squeeze-playerid)))
-    (message "start %d, end %d, val %d" start end val)
     (squeeze-control-volume-set id val)))
 
 (defun squeeze-control-display-players ()
@@ -249,6 +259,7 @@
           (insert (propertize (squeeze-mixer-make-bar (squeeze-player-volume player) 28)
                               'squeeze-playerid (squeeze-player-playerid player)
                               'keymap squeeze-control-mixer-map
+                              'pointer 'hdrag
                               'rear-nonsticky '(keymap))))
         (insert (propertize "\n" 'intangible t)))
       (read-only-mode 1))))
