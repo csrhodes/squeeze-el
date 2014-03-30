@@ -26,6 +26,7 @@
     (define-key map (kbd "g") 'squeeze-control-refresh)
     (define-key map (kbd "+") 'squeeze-control-volume-up)
     (define-key map (kbd "-") 'squeeze-control-volume-down)
+    (define-key map (kbd "t") 'squeeze-control-toggle-syncgroup-display)
     map))
 
 (define-derived-mode squeeze-control-mode special-mode "SqueezeControl"
@@ -71,6 +72,9 @@
   (cond
    ((string-match "^players 0" string)
     (setq squeeze-players (squeeze-parse-players-line string))
+    t)
+   ((string-match "^syncgroups" string)
+    (setq squeeze-syncgroups (squeeze-parse-syncgroups-line string))
     t)
    ((string-match squeeze-player-line-regexp string)
     (let ((substring (substring string (match-end 0)))
@@ -123,6 +127,10 @@
 (defface squeeze-mixer-muted-quiet-face
   '((t :inherit (squeeze-mixer-muted-face squeeze-mixer-quiet-face)))
   "Face for quiet volume when muted")
+(defface squeeze-syncgroup-face
+  '((t :slant italic))
+  "Face for syncgroups"
+  :group 'squeeze)
 
 (defun squeeze-mixer-compute-bar (vol width)
   (let* ((exact (* width (/ vol 100.0)))
@@ -154,6 +162,11 @@
             (propertize "▏" 'intangible t))))
 
 (defvar squeeze-players ())
+(defvar squeeze-syncgroups ())
+
+(defun squeeze-control-query-syncgroups ()
+  (interactive)
+  (comint-send-string (get-buffer-process "*squeeze*") (format "syncgroups ?\n")))
 
 (defun squeeze-control-query-players ()
   (interactive)
@@ -244,25 +257,58 @@
          (id (get-text-property (point) 'squeeze-playerid)))
     (squeeze-control-volume-set id val)))
 
+(defvar squeeze-control-display-syncgroups nil)
+
+(defun squeeze-control-toggle-syncgroup-display ()
+  (interactive)
+  (setf squeeze-control-display-syncgroups
+        (not squeeze-control-display-syncgroups))
+  (squeeze-control-display-players))
+
+(defun squeeze-control-insert-player (player)
+  (insert (propertize (format "%20s" (squeeze-player-name player))
+                      'face (squeeze-control-player-face player)
+                      'squeeze-playerid (squeeze-player-playerid player)))
+  (when (squeeze-player-volume player)
+    (insert (propertize
+             (squeeze-mixer-make-bar (squeeze-player-volume player) 28)
+             'squeeze-playerid (squeeze-player-playerid player)
+             'keymap squeeze-control-mixer-map
+             'pointer 'hdrag
+             'rear-nonsticky '(keymap))))
+  (insert (propertize "\n" 'intangible t)))
+
 (defun squeeze-control-display-players ()
   (interactive)
-  (let ((players squeeze-players))
+  (cond
+   (squeeze-control-display-syncgroups
     (with-current-buffer (get-buffer-create "*squeeze-control*")
       (squeeze-control-mode)
       (read-only-mode -1)
       (erase-buffer)
-      (dolist (player players)
-        (insert (propertize (format "%20s" (squeeze-player-name player))
-                            'face (squeeze-control-player-face player)
-                            'squeeze-playerid (squeeze-player-playerid player)))
-        (when (squeeze-player-volume player)
-          (insert (propertize (squeeze-mixer-make-bar (squeeze-player-volume player) 28)
-                              'squeeze-playerid (squeeze-player-playerid player)
-                              'keymap squeeze-control-mixer-map
-                              'pointer 'hdrag
-                              'rear-nonsticky '(keymap))))
-        (insert (propertize "\n" 'intangible t)))
-      (read-only-mode 1))))
+      (let ((syncgroups squeeze-syncgroups)
+            (seen))
+        (while syncgroups
+          (let ((names (getf syncgroups :names))
+                (members (split-string (getf syncgroups :members) ",")))
+            (insert (propertize names 'face 'squeeze-syncgroup-face) "\n")
+            (dolist (member members)
+              (let ((player (squeeze-find-player member)))
+                (squeeze-control-insert-player player)
+                (push player seen))))
+          (setq syncgroups (cddddr syncgroups)))
+        (insert (propertize "No syncgroup" 'face 'squeeze-syncgroup-face) "\n")
+        (dolist (player squeeze-players)
+          (unless (member player seen)
+            (squeeze-control-insert-player player))))))
+   (t
+    (with-current-buffer (get-buffer-create "*squeeze-control*")
+      (squeeze-control-mode)
+      (read-only-mode -1)
+      (erase-buffer)
+      (dolist (player squeeze-players)
+        (squeeze-control-insert-player player))
+      (read-only-mode 1)))))
 
 (cl-defstruct (squeeze-player (:constructor squeeze-make-player))
   playerindex playerid uuid ip name model isplayer displaytype canpoweroff connected power volume)
@@ -280,6 +326,12 @@
              (setq start mend))
          (return)))
       (nreverse result))))
+
+(defun squeeze-parse-syncgroups-line (string)
+  (let ((syncgroupspos (string-match "^syncgroups " string))
+        (startpos (match-end 0)))
+    (when startpos
+      (squeeze-string-plistify string startpos (length string)))))
 
 (defun squeeze-parse-players-line (string)
   (let ((countpos (string-match " count%3A\\([0-9]\\) " string))
