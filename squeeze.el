@@ -226,6 +226,8 @@
   (let ((squeeze-control-inhibit-display t))
     (squeeze-control-query-players)
     (accept-process-output (get-buffer-process "*squeeze*"))
+    (squeeze-control-query-syncgroups)
+    (accept-process-output (get-buffer-process "*squeeze*"))
     (dolist (player squeeze-players)
       (squeeze-control-query-power (squeeze-player-playerid player))
       (accept-process-output (get-buffer-process "*squeeze*"))
