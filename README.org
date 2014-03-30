@@ -1,0 +1,31 @@
+* Motivation
+  This project aims to provide a comfortable user interface for
+  managing an instance of Logitech Media Server (previously Squeezebox
+  Server, previously previously SqueezeCenter, previously³ SlimServer)
+  and a reasonable number of attached players, such as might be found
+  in a home or small office.
+** Logitech Media Server
+   Logitech Media Server is a Free Software streaming audio server,
+   with a number of nice features, including in particular
+   synchronizing the audio playing between user-settable combinations
+   of players.  There's also an active community of users and plugin
+   developers, despite the discontinuing of support from Logitech.
+
+   LMS provides a web interface to its controls (on port 9000 by
+   default), which is adequate for many uses.  It also provides a CLI
+   over TCP/IP (on port 9090), and it is this CLI that this project
+   exploits.
+** Squeezebox players
+   Squeezebox players come in various forms; hardware supporting the
+   LMS protocol was sold as Squeezebox Classic, Boom, Receiver, Touch
+   and Radio.  After purchasing the Squeezebox company, Logitech
+   discontinued the sale of LMS devices, devising a new “UE” protocol
+   with the disadvantage of requiring an always-on Internet
+   connection, even to play local media.  It is reportedly possible to
+   convert UE Radios to Squeezebox Radios by executing a command in
+   the Radio user interface.
+
+   In addition to the hardware players, there exist software clients,
+   such as SqueezePlay and SqueezeLite.  This opens the door for
+   enthusiasts to build a low-cost home media system using
+   off-the-shelf components and Free Software.
