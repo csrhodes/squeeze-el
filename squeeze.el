@@ -24,6 +24,7 @@
 (defvar squeeze-control-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "SPC") 'squeeze-control-toggle-power)
+    (define-key map (kbd "f") 'squeeze-control-play-favorite)
     (define-key map (kbd "g") 'squeeze-control-refresh)
     (define-key map (kbd "+") 'squeeze-control-volume-up)
     (define-key map (kbd "-") 'squeeze-control-volume-down)
@@ -178,6 +179,13 @@
   (unless id
     (setq id (get-text-property (point) 'squeeze-playerid)))
   (comint-send-string (get-buffer-process "*squeeze*") (format "%s power\n" id)))
+
+(defun squeeze-control-play-favorite (&optional favorite id)
+  (interactive "nFavourite: ")
+  (unless id
+    (setq id (get-text-property (point) 'squeeze-playerid)))
+  (comint-send-string (get-buffer-process "*squeeze*")
+                      (format "%s favorites playlist play item_id:%d\n" id favorite)))
 
 (defun squeeze-control-query-power (&optional id)
   (interactive)
