@@ -300,35 +300,33 @@
 
 (defun squeeze-control-display-players ()
   (interactive)
-  (cond
-   (squeeze-control-display-syncgroups
-    (with-current-buffer (get-buffer-create "*squeeze-control*")
+  (with-current-buffer (get-buffer-create "*squeeze-control*")
+    (let ((saved (point)))
       (squeeze-control-mode)
       (read-only-mode -1)
       (erase-buffer)
-      (let ((syncgroups squeeze-syncgroups)
-            (seen))
-        (while syncgroups
-          (let ((names (getf syncgroups :names))
-                (members (split-string (getf syncgroups :members) ",")))
-            (insert (propertize names 'face 'squeeze-syncgroup-face) "\n")
-            (dolist (member members)
-              (let ((player (squeeze-find-player member)))
-                (squeeze-control-insert-player player)
-                (push player seen))))
-          (setq syncgroups (cddddr syncgroups)))
-        (insert (propertize "No syncgroup" 'face 'squeeze-syncgroup-face) "\n")
+      (cond
+       (squeeze-control-display-syncgroups
+        (let ((syncgroups squeeze-syncgroups)
+              (seen))
+          (while syncgroups
+            (let ((names (getf syncgroups :names))
+                  (members (split-string (getf syncgroups :members) ",")))
+              (insert (propertize names 'face 'squeeze-syncgroup-face) "\n")
+              (dolist (member members)
+                (let ((player (squeeze-find-player member)))
+                  (squeeze-control-insert-player player)
+                  (push player seen))))
+            (setq syncgroups (cddddr syncgroups)))
+          (insert (propertize "No syncgroup" 'face 'squeeze-syncgroup-face) "\n")
+          (dolist (player squeeze-players)
+            (unless (member player seen)
+              (squeeze-control-insert-player player)))))
+       (t
         (dolist (player squeeze-players)
-          (unless (member player seen)
-            (squeeze-control-insert-player player))))))
-   (t
-    (with-current-buffer (get-buffer-create "*squeeze-control*")
-      (squeeze-control-mode)
-      (read-only-mode -1)
-      (erase-buffer)
-      (dolist (player squeeze-players)
-        (squeeze-control-insert-player player))
-      (read-only-mode 1)))))
+          (squeeze-control-insert-player player))
+        (read-only-mode 1)))
+      (goto-char saved))))
 
 (cl-defstruct (squeeze-player (:constructor squeeze-make-player))
   playerindex playerid uuid ip name model isplayer displaytype canpoweroff connected power volume)
