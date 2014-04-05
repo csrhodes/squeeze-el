@@ -166,33 +166,42 @@
 (defvar squeeze-players ())
 (defvar squeeze-syncgroups ())
 
+(defun squeeze-send-string (control &rest arguments)
+  (let* ((process (get-buffer-process "*squeeze*"))
+         (string (apply #'format control arguments))
+         (length (length string)))
+    (unless (and (> length 0) (char-equal (aref string (1- length)) ?\n))
+      (setq string (format "%s\n" string)))
+    (if process
+        (comint-send-string process string)
+      (error "can't find squeeze process"))))
+
 (defun squeeze-control-query-syncgroups ()
   (interactive)
-  (comint-send-string (get-buffer-process "*squeeze*") (format "syncgroups ?\n")))
+  (squeeze-send-string "syncgroups ?"))
 
 (defun squeeze-control-query-players ()
   (interactive)
-  (comint-send-string (get-buffer-process "*squeeze*") (format "players 0\n")))
+  (squeeze-send-string "players 0"))
 
 (defun squeeze-control-toggle-power (&optional id)
   (interactive)
   (unless id
     (setq id (get-text-property (point) 'squeeze-playerid)))
-  (comint-send-string (get-buffer-process "*squeeze*") (format "%s power\n" id)))
+  (squeeze-send-string "%s power" id))
 
 (defun squeeze-control-play-favorite (&optional favorite id)
   (interactive "nFavourite: ")
   (unless id
     (setq id (get-text-property (point) 'squeeze-playerid)))
-  (comint-send-string (get-buffer-process "*squeeze*")
-                      (format "%s favorites playlist play item_id:%d\n" id favorite)))
+  (squeeze-send-string "%s favorites playlist play item_id:%d" id favorite))
 
 (defun squeeze-control-query-power (&optional id)
   (interactive)
   (unless id
     (setq id (get-text-property (point) 'squeeze-playerid)))
   (when id
-    (comint-send-string (get-buffer-process "*squeeze*") (format "%s power ?\n" id))))
+    (squeeze-send-string "%s power ?" id)))
 
 (defun squeeze-control-volume-up (&optional id inc)
   (interactive)
@@ -200,7 +209,7 @@
   (unless id
     (setq id (get-text-property (point) 'squeeze-playerid)))
   (when id
-    (comint-send-string (get-buffer-process "*squeeze*") (format "%s mixer volume %+d\n" id inc))))
+    (squeeze-send-string "%s mixer volume %+d" id inc)))
 
 (defun squeeze-control-volume-down (&optional id inc)
   (interactive)
@@ -208,18 +217,18 @@
   (unless id
     (setq id (get-text-property (point) 'squeeze-playerid)))
   (when id
-    (comint-send-string (get-buffer-process "*squeeze*") (format "%s mixer volume %+d\n" id (- inc)))))
+    (squeeze-send-string "%s mixer volume %+d" id (- inc))))
 
 (defun squeeze-control-volume-set (id val)
   (interactive)
-  (comint-send-string (get-buffer-process "*squeeze*") (format "%s mixer volume %d\n" id val)))
+  (squeeze-send-string "%s mixer volume %d" id val))
 
 (defun squeeze-control-query-mixer-volume (&optional id)
   (interactive)
   (unless id
     (setq id (get-text-property (point) 'squeeze-playerid)))
   (when id
-    (comint-send-string (get-buffer-process "*squeeze*") (format "%s mixer volume ?\n" id))))
+    (squeeze-send-string "%s mixer volume ?" id)))
 
 (defun squeeze-control-player-face (player)
   (let ((power (squeeze-player-power player)))
@@ -228,7 +237,7 @@
           (t 'squeeze-player-face))))
 
 (defun squeeze-control-listen ()
-  (comint-send-string (get-buffer-process "*squeeze*") (format "listen 1\n")))
+  (squeeze-send-string "listen 1"))
 
 (defun squeeze-control-refresh ()
   (interactive)
