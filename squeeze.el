@@ -17,6 +17,7 @@
 
 (define-derived-mode squeeze-mode comint-mode "Squeeze"
   "Major mode for interacting with the Squeezebox Server CLI.\\<squeeze-mode-map>"
+  (add-to-list 'completion-at-point-functions 'squeeze-complete-command-at-point)
   (add-hook 'comint-preoutput-filter-functions 'url-unhex-string nil t)
   (add-hook 'comint-preoutput-filter-functions 'squeeze-update-state nil t))
 
