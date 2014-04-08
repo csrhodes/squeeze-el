@@ -356,7 +356,7 @@
         (startpos (match-end 0)))
     (unless countpos
       (message "no count found in players line"))
-    (let ((count (parse-integer string (match-beginning 1) (match-end 1)))
+    (let ((count (string-to-number (substring string (match-beginning 1) (match-end 1))))
           result endpos)
       (dotimes (i (1- count))
         (setq endpos (progn (string-match " connected%3A[0-1] " string startpos)
