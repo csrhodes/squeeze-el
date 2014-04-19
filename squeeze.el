@@ -239,18 +239,19 @@
 (defun squeeze-control-listen ()
   (squeeze-send-string "listen 1"))
 
+(defun squeeze-accept-process-output ()
+  (while (accept-process-output (get-buffer-process "*squeeze*") 0.1 nil t)))
+
 (defun squeeze-control-refresh ()
   (interactive)
   (let ((squeeze-control-inhibit-display t))
     (squeeze-control-query-players)
-    (accept-process-output (get-buffer-process "*squeeze*"))
+    (squeeze-accept-process-output)
     (squeeze-control-query-syncgroups)
-    (accept-process-output (get-buffer-process "*squeeze*"))
     (dolist (player squeeze-players)
       (squeeze-control-query-power (squeeze-player-playerid player))
-      (accept-process-output (get-buffer-process "*squeeze*"))
-      (squeeze-control-query-mixer-volume (squeeze-player-playerid player))
-      (accept-process-output (get-buffer-process "*squeeze*"))))
+      (squeeze-control-query-mixer-volume (squeeze-player-playerid player))))
+  (squeeze-accept-process-output)
   (squeeze-control-display-players))
 
 (defvar squeeze-control-mixer-map
