@@ -430,3 +430,5 @@
     (squeeze-control-listen)
     (squeeze-control-refresh)
     (squeeze-control-display-players)))
+
+(provide 'squeeze)
