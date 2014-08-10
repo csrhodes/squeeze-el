@@ -144,16 +144,9 @@
          (nblank (floor (- width exact))))
     (format "%s%s%s"
             (make-string nfull ?█)
-            (cond ((= width (+ nfull nblank)) "")
-                  ((< frac 0.0625) " ")
-                  ((< frac 0.1875) "▏")
-                  ((< frac 0.3125) "▎")
-                  ((< frac 0.4375) "▍")
-                  ((< frac 0.5625) "▌")
-                  ((< frac 0.6875) "▋")
-                  ((< frac 0.8125) "▊")
-                  ((< frac 0.9375) "▉")
-                  (t "█"))
+            (if (= width (+ nfull nblank))
+                ""
+              (aref " ▏▎▍▌▋▊▉█" (floor (+ frac 0.0625) 0.125)))
             (make-string nblank ? ))))
 
 (defun squeeze-mixer-make-bar (vol width)
