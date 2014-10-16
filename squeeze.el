@@ -407,17 +407,33 @@
             "favorites"
             ))))
 
-(defun squeeze ()
+(defun squeeze-read-server-parameters (address port)
+  (let ((host (read-string "Host: " nil nil address))
+        (port (read-number "Port: " port)))
+    (cons host port)))
+
+(defun squeeze (&optional address port)
   (interactive)
-  (let ((buffer (make-comint-in-buffer "squeeze" nil
-                                       (cons squeeze-server-address
-                                             squeeze-server-port))))
+  (unless address (setq address squeeze-server-address))
+  (unless port (setq port squeeze-server-port))
+  (when current-prefix-arg
+    (let ((parameters (squeeze-read-server-parameters address port)))
+      (setq address (car parameters)
+            port (cdr parameters))))
+  (let ((buffer (make-comint-in-buffer "squeeze" nil (cons address port))))
     (switch-to-buffer buffer)
     (squeeze-mode)))
 
-(defun squeeze-control ()
+(defun squeeze-control (&optional address port)
   (interactive)
-  (squeeze)
+  (unless address (setq address squeeze-server-address))
+  (unless port (setq port squeeze-server-port))
+  (when current-prefix-arg
+    (let ((parameters (squeeze-read-server-parameters address port)))
+      (setq address (car parameters)
+            port (cdr parameters))))
+  (let ((current-prefix-arg nil))
+    (squeeze address port))
   (let ((buffer (get-buffer-create "*squeeze-control*")))
     (switch-to-buffer buffer)
     (squeeze-control-listen)
