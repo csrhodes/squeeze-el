@@ -146,7 +146,7 @@
             (make-string nfull ?█)
             (if (= width (+ nfull nblank))
                 ""
-              (aref " ▏▎▍▌▋▊▉█" (floor (+ frac 0.0625) 0.125)))
+              (string (aref " ▏▎▍▌▋▊▉█" (floor (+ frac 0.0625) 0.125))))
             (make-string nblank ? ))))
 
 (defun squeeze-mixer-make-bar (vol width)
