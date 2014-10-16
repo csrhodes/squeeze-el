@@ -329,6 +329,8 @@
   playerindex playerid uuid ip name model isplayer displaytype canpoweroff connected power volume)
 
 (defun squeeze-string-plistify (string start end)
+  (unless end
+    (setq end (length string)))
   (save-match-data
     (let (result)
       (loop
@@ -337,7 +339,10 @@
              (when (> mend end)
                (return))
              (push (intern (format ":%s" (substring string (match-beginning 1) (match-end 1)))) result)
-             (push (url-unhex-string (substring string (match-beginning 2) (match-end 2))) result)
+             (push (decode-coding-string
+                    (url-unhex-string (substring string (match-beginning 2) (match-end 2)))
+                    'utf-8)
+                   result)
              (setq start mend))
          (return)))
       (nreverse result))))
