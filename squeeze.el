@@ -419,7 +419,7 @@
             "serverstatus" "status" "displaystatus" "readdirectory"
 
             ;; Notifications
-            
+
             ;; Alarm commands and queries
             "alarm" "alarms"
 
