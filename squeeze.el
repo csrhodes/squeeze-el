@@ -358,20 +358,30 @@
     (when startpos
       (squeeze-string-plistify string startpos (length string)))))
 
+(defun squeeze-parse-count (string)
+  (save-match-data
+    (let ((countpos (string-match "count%3A\\([0-9]*\\)\\>" string)))
+      (if countpos
+          (string-to-number
+           (substring string (match-beginning 1) (match-end 1)))
+        (let ((kind
+               (progn (string-match "^\\([a-z]*\\) " string)
+                      (substring string (match-beginning 1) (match-end 1)))))
+          (message "no count found in %s line" kind)
+          nil)))))
+
 (defun squeeze-parse-players-line (string)
-  (let ((countpos (string-match " count%3A\\([0-9]\\) " string))
-        (startpos (match-end 0)))
-    (unless countpos
-      (message "no count found in players line"))
-    (let ((count (string-to-number (substring string (match-beginning 1) (match-end 1))))
-          result endpos)
-      (dotimes (i (1- count))
-        (setq endpos (progn (string-match " connected%3A[0-1] " string startpos)
-                            (match-end 0)))
-        (push (apply 'squeeze-make-player (squeeze-string-plistify string startpos endpos)) result)
-        (setq startpos endpos))
-      (push (apply 'squeeze-make-player (squeeze-string-plistify string startpos (length string))) result)
-      result)))
+  (let ((count (squeeze-parse-count string))
+        (startpos (string-match "playerindex" string))
+        result endpos)
+    (dotimes (i (1- count))
+      (setq endpos (progn (string-match " connected%3A[0-1] " string startpos)
+                          (match-end 0)))
+      (push (apply 'squeeze-make-player (squeeze-string-plistify string startpos endpos)) result)
+      (setq startpos endpos))
+    (push (apply 'squeeze-make-player (squeeze-string-plistify string startpos (length string))) result)
+    result))
+
 
 (defun squeeze-complete-command-at-point ()
   (save-excursion
