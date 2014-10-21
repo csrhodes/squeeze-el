@@ -39,15 +39,20 @@
 
 (defvar squeeze-control-inhibit-display nil)
 
-(defun squeeze-update-state (string)
-  (let (done-something)
-    (dolist (line (split-string string "\n"))
-      (when (squeeze-update-state-from-line line)
-        (setq done-something t)))
-    (when done-something
-      (unless squeeze-control-inhibit-display
-        (squeeze-control-display-players))))
-  string)
+(lexical-let ((buffer ""))
+  (defun squeeze-update-state (string)
+    (if (cl-position ?\n string)
+        (let (done-something)
+          (setq string (concat buffer string))
+          (dolist (line (split-string string "\n"))
+            (when (squeeze-update-state-from-line line)
+              (setq done-something t)))
+          (when done-something
+            (unless squeeze-control-inhibit-display
+              (squeeze-control-display-players)))
+          (setq buffer ""))
+      (setq buffer (concat buffer string)))
+    string))
 
 (defconst squeeze-player-line-regexp
   "^\\(\\(?:[0-9a-f]\\{2\\}%3A\\)\\{5\\}[0-9a-f]\\{2\\}\\) ")
