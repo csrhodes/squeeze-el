@@ -339,7 +339,7 @@
   (save-match-data
     (let (result)
       (loop
-       (if (string-match "\\([a-z]+\\)%3A\\([^ \n]+\\)" string start)
+       (if (string-match "\\([a-z_]+\\)%3A\\([^ \n]+\\)" string start)
            (let ((mend (match-end 0)))
              (when (> mend end)
                (return))
