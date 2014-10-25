@@ -15,8 +15,23 @@
     (define-key map (kbd "TAB") 'completion-at-point)
     map))
 
+(defun squeeze-unhex-string (string)
+  (with-temp-buffer
+    (let ((case-fold-search t)
+          (start 0))
+      (while (string-match "%[0-9a-f][0-9a-f]" string start)
+        (let* ((s (match-beginning 0))
+               (ch1 (url-unhex (elt string (+ s 1))))
+               (code (+ (* 16 ch1)
+                        (url-unhex (elt string (+ s 2))))))
+          (insert (substring string start s)
+                  (byte-to-string code))
+          (setq start (match-end 0))))
+      (insert (substring string start)))
+    (buffer-string)))
+
 (defun squeeze-unhex-and-decode-utf8-string (string)
-  (decode-coding-string (url-unhex-string string) 'utf-8))
+  (decode-coding-string (squeeze-unhex-string string) 'utf-8))
 
 (define-derived-mode squeeze-mode comint-mode "Squeeze"
   "Major mode for interacting with the Squeezebox Server CLI.\\<squeeze-mode-map>"
