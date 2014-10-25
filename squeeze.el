@@ -39,19 +39,24 @@
 
 (defvar squeeze-control-inhibit-display nil)
 
-(lexical-let ((buffer ""))
+(lexical-let ((buffer (get-buffer-create " *squeeze-update-state*")))
   (defun squeeze-update-state (string)
+    ;; FIXME: we could make this a lot more elegant by using the
+    ;; buffer abstraction more
     (if (cl-position ?\n string)
         (let (done-something)
-          (setq string (concat buffer string))
+          (with-current-buffer buffer
+            (insert string)
+            (setq string (buffer-string))
+            (erase-buffer))
           (dolist (line (split-string string "\n"))
             (when (squeeze-update-state-from-line line)
               (setq done-something t)))
           (when done-something
             (unless squeeze-control-inhibit-display
-              (squeeze-control-display-players)))
-          (setq buffer ""))
-      (setq buffer (concat buffer string)))
+              (squeeze-control-display-players))))
+      (with-current-buffer buffer
+        (insert string)))
     string))
 
 (defconst squeeze-player-line-regexp
