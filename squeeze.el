@@ -408,45 +408,47 @@
   (save-excursion
     (list (progn (backward-word) (point))
           (progn (forward-word) (point))
-          '(;; General commands and queries
-            "login" "can" "version" "listen" "subscribe" "pref"
-            "logging" "getstring" "setsncredentials" "debug"
-            "exit" "shutdown"
+          (append
+           (mapcar 'squeeze-player-playerid squeeze-players)
+           '(;; General commands and queries
+             "login" "can" "version" "listen" "subscribe" "pref"
+             "logging" "getstring" "setsncredentials" "debug"
+             "exit" "shutdown"
 
-            ;; Player commands and queries
-            "player" "count" "id" "uuid" "name" "ip" "model" "isplayer"
-            "displaytype" "canpoweroff" "?" "signalstrength" "connected"
-            "sleep" "sync" "syncgroups" "power" "mixer" "volume" "muting"
-            "bass" "treble" "pitch" "show" "display" "linesperscreen"
-            "displaynow" "playerpref" "button" "ir" "irenable"
-            "connect" "client" "forget" "disconnect" "players"
-            
-            ;; Database commands and queries
-            "rescan" "rescanprogress" "abortscan" "wipecache" "info"
-            "total" "genres" "artists" "albums" "songs" "years"
-            "musicfolder" "playlists" "tracks" "new" "rename" "delete"
-            "edit" "songinfo" "titles" "search" "pragma"
+             ;; Player commands and queries
+             "player" "count" "id" "uuid" "name" "ip" "model" "isplayer"
+             "displaytype" "canpoweroff" "?" "signalstrength" "connected"
+             "sleep" "sync" "syncgroups" "power" "mixer" "volume" "muting"
+             "bass" "treble" "pitch" "show" "display" "linesperscreen"
+             "displaynow" "playerpref" "button" "ir" "irenable"
+             "connect" "client" "forget" "disconnect" "players"
 
-            ;; Playlist commands and queries
-            "play" "stop" "pause" "mode" "time" "genre" "artist" "album"
-            "title" "duration" "remote" "current_title" "path" "playlist"
-            "add" "insert" "deleteitem" "move" "delete" "preview" "resume"
-            "save" "loadalbum" "addalbum" "loadtracks" "addtracks"
-            "insertalbum" "deletealbum" "clear" "zap" "name" "url"
-            "modified" "playlistsinfo" "index" "shuffle" "repeat"
-            "playlistcontrol"
+             ;; Database commands and queries
+             "rescan" "rescanprogress" "abortscan" "wipecache" "info"
+             "total" "genres" "artists" "albums" "songs" "years"
+             "musicfolder" "playlists" "tracks" "new" "rename" "delete"
+             "edit" "songinfo" "titles" "search" "pragma"
 
-            ;; Compound queries
-            "serverstatus" "status" "displaystatus" "readdirectory"
+             ;; Playlist commands and queries
+             "play" "stop" "pause" "mode" "time" "genre" "artist" "album"
+             "title" "duration" "remote" "current_title" "path" "playlist"
+             "add" "insert" "deleteitem" "move" "delete" "preview" "resume"
+             "save" "loadalbum" "addalbum" "loadtracks" "addtracks"
+             "insertalbum" "deletealbum" "clear" "zap" "name" "url"
+             "modified" "playlistsinfo" "index" "shuffle" "repeat"
+             "playlistcontrol"
 
-            ;; Notifications
+             ;; Compound queries
+             "serverstatus" "status" "displaystatus" "readdirectory"
 
-            ;; Alarm commands and queries
-            "alarm" "alarms"
+             ;; Notifications
 
-            ;; Plugins commands and queries
-            "favorites"
-            ))))
+             ;; Alarm commands and queries
+             "alarm" "alarms"
+
+             ;; Plugins commands and queries
+             "favorites"
+             )))))
 
 (defun squeeze-read-server-parameters (address port)
   (let ((host (read-string "Host: " nil nil address))
