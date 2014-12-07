@@ -9,7 +9,9 @@
 (defcustom squeeze-server-port 9090
   "Port number for the Squeezebox server"
   :group 'squeeze)
-
+(defcustom squeeze-server-http-port 9000
+  "Port number for the Squeezebox HTTP server"
+  :group 'squeeze)
 (defvar squeeze-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "TAB") 'completion-at-point)
@@ -50,6 +52,7 @@
     (define-key map (kbd ">") 'squeeze-control-next-track)
     (define-key map (kbd "<") 'squeeze-control-previous-track)
     (define-key map (kbd "s") 'squeeze-control-select-player)
+    (define-key map (kbd "a") 'squeeze-list-albums)
     map))
 
 (defvar squeeze-control-current-player nil)
@@ -102,6 +105,11 @@
     (when (string= id (squeeze-player-playerid player))
       (return player))))
 
+(defun squeeze-find-player-from-name (name)
+  (dolist (player squeeze-players)
+    (when (string= name (squeeze-player-name player))
+      (return player))))
+
 (defun squeeze-update-power (player state)
   (if state
       (setf (squeeze-player-power player) state)
@@ -127,6 +135,9 @@
     t)
    ((string-match "^syncgroups" string)
     (setq squeeze-syncgroups (squeeze-parse-syncgroups-line string))
+    t)
+   ((string-match "^albums" string)
+    (squeeze-parse-albums-line string)
     t)
    ((string-match squeeze-player-line-regexp string)
     (let ((substring (substring string (match-end 0)))
@@ -431,6 +442,76 @@
       (push (apply 'squeeze-make-player (squeeze-string-plistify string startpos (length string))) result))
     result))
 
+(defcustom squeeze-artwork-directory "~/.emacs.d/squeeze/artwork/"
+  "Base directory for album and track artwork")
+
+(defvar squeeze-albums nil)
+
+(cl-defstruct (squeeze-album (:constructor squeeze-make-album))
+  id album artwork_track_id artist index)
+
+(defun squeeze-parse-albums-line (string)
+  (let ((count (squeeze-parse-count string))
+        (countpos (string-match "\\_<count%3a" string))
+        (start-index-pos (progn (string-match "^albums \\([0-9]+\\)\\>" string)
+                                (match-beginning 1)))
+        index start end)
+    (unless squeeze-albums
+      (setq squeeze-albums (make-vector count nil)))
+    (when start-index-pos
+      (setq index (string-to-number (substring string start-index-pos)))
+      (setq start (string-match "\\_<id%3a" string start-index-pos))
+      (while start
+        (setq end (string-match "\\_<\\(id%3a\\|count%3a\\)" string (1+ start)))
+        (aset squeeze-albums index
+              (apply 'squeeze-make-album
+                     :index index
+                     (squeeze-string-plistify string start end)))
+        (incf index)
+        (setq start (if (= end countpos) nil end))))))
+
+(defun squeeze-get-albums ()
+  (squeeze-send-string "albums 0 1000 tags:lja")
+  (squeeze-accept-process-output))
+
+(defvar squeeze-albums-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "RET") 'squeeze-albums-load-album)
+    map))
+
+(define-derived-mode squeeze-albums-mode tabulated-list-mode "SqueezeAlbums"
+  "Major mode for displaying Albums from Squeezebox Servers.\\<squeeze-albums-mode-map>"
+  (setq tabulated-list-format [("Cover" 10 nil) ("Title" 30 t)])
+  (add-hook 'tabulated-list-revert-hook 'squeeze-get-albums nil t)
+  (setq tabulated-list-entries 'squeeze-albums-tabulated-list-entries)
+  (tabbar-mode -1)
+  (setq tabulated-list-use-header-line nil)
+  (tabulated-list-init-header))
+
+(defun squeeze-albums-artwork-callback (status artwork_track_id filename)
+  (unless status
+    (goto-char 1)
+    (let ((end (search-forward "\n\n")))
+      (delete-region 1 end)
+      (write-file (format "%s%s/%s" squeeze-artwork-directory artwork_track_id filename))
+      (kill-buffer))))
+
+(defun squeeze-albums-tabulated-list-entry (x)
+  (let* ((ati (squeeze-album-artwork_track_id x))
+         (file (format "%s%s/cover_50x50_o.jpg" squeeze-artwork-directory ati)))
+    (unless (file-exists-p file)
+      (make-directory (format "%s%s" squeeze-artwork-directory ati) t)
+      (let ((url (format "http://%s:%s/music/%s/cover_50x50_o.jpg"
+                         squeeze-server-address squeeze-server-http-port ati)))
+        (url-queue-retrieve url 'squeeze-albums-artwork-callback
+                            (list ati "cover_50x50_o.jpg") t t)))
+    (list x (vector (propertize (format "%s" ati)
+                                'display `(when (file-exists-p ,file)
+                                            image :type jpeg :file ,file))
+                    (squeeze-album-album x)))))
+
+(defun squeeze-albums-tabulated-list-entries ()
+  (mapcar 'squeeze-albums-tabulated-list-entry (append squeeze-albums nil)))
 
 (defun squeeze-complete-command-at-point ()
   (save-excursion
@@ -510,5 +591,19 @@
     (squeeze-control-listen)
     (squeeze-control-refresh)
     (squeeze-control-display-players)))
+
+(defun squeeze-list-albums ()
+  (interactive)
+  (squeeze-get-albums)
+  (let ((buffer (get-buffer-create "*squeeze-albums*")))
+    (switch-to-buffer buffer)
+    (squeeze-albums-mode)
+    (tabulated-list-print)))
+
+(defun squeeze-albums-load-album ()
+  (interactive)
+  (squeeze-send-string "%s playlistcontrol cmd:load album_id:%s"
+                       squeeze-control-current-player
+                       (squeeze-album-id (tabulated-list-get-id))))
 
 (provide 'squeeze)
