@@ -47,7 +47,27 @@
     (define-key map (kbd "+") 'squeeze-control-volume-up)
     (define-key map (kbd "-") 'squeeze-control-volume-down)
     (define-key map (kbd "t") 'squeeze-control-toggle-syncgroup-display)
+    (define-key map (kbd ">") 'squeeze-control-next-track)
+    (define-key map (kbd "<") 'squeeze-control-previous-track)
+    (define-key map (kbd "s") 'squeeze-control-select-player)
     map))
+
+(defvar squeeze-control-current-player nil)
+
+(defun squeeze-control-select-player (id)
+  (interactive
+   (list (or (get-text-property (point) 'squeeze-playerid)
+             (let ((name (completing-read "Select player: " (mapcar 'squeeze-player-name squeeze-players))))
+               (squeeze-player-playerid (squeeze-find-player-from-name name))))))
+  (setq squeeze-control-current-player id))
+
+(defun squeeze-control-next-track ()
+  (interactive)
+  (squeeze-send-string "%s playlist index +1" squeeze-control-current-player))
+
+(defun squeeze-control-previous-track ()
+  (interactive)
+  (squeeze-send-string "%s playlist index -1" squeeze-control-current-player))
 
 (define-derived-mode squeeze-control-mode special-mode "SqueezeControl"
   "Major mode for controlling Squeezebox Servers.\\<squeeze-control-mode-map>")
