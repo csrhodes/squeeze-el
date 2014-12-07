@@ -332,8 +332,9 @@
         (let ((syncgroups squeeze-syncgroups)
               (seen))
           (while syncgroups
-            (let ((names (getf syncgroups :names))
-                  (members (split-string (getf syncgroups :members) ",")))
+            (let ((names (getf syncgroups :sync_member_names))
+                  ;; new server version has sync_members and sync_member_names
+                  (members (split-string (getf syncgroups :sync_members) ",")))
               (insert (propertize names 'face 'squeeze-syncgroup-face) "\n")
               (dolist (member members)
                 (let ((player (squeeze-find-player member)))
