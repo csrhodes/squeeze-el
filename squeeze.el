@@ -98,6 +98,8 @@
               (and current (max 0 (min 100 (+ current number)))))
       (setf (squeeze-player-volume player) number))))
 
+(require 'notifications)
+
 (defun squeeze-update-state-from-line (string)
   (cond
    ((string-match "^players 0" string)
@@ -110,6 +112,11 @@
     (let ((substring (substring string (match-end 0)))
           (id (url-unhex-string (match-string 1 string))))
       (cond
+       ((string-match "^playlist newsong \\(.*\\) \\([0-9]+\\)$" substring)
+        (let ((value (save-match-data (url-unhex-string (match-string 1 substring))))
+              (index (url-unhex-string (match-string 2 substring))))
+          (notifications-notify :title "Now playing" :body (encode-coding-string (format "%s: %s" index value) 'utf-8)))
+        t)
        ((string-match "^power\\(?: \\([01]\\)\\)?" substring)
         (let ((state (match-string 1 substring))
               (player (squeeze-find-player id)))
