@@ -56,6 +56,12 @@
     (define-key map (kbd "!") 'squeeze-control-reconnect)
     map))
 
+(defun squeeze-control-current-player ()
+  (or squeeze-control-current-player
+      (if (= (length squeeze-players) 1)
+          (setq squeeze-control-current-player (squeeze-player-playerid (car squeeze-players)))
+        (call-interactively 'squeeze-control-select-player))))
+
 (defvar squeeze-control-current-player nil)
 
 (defun squeeze-control-select-player (id)
@@ -67,11 +73,11 @@
 
 (defun squeeze-control-next-track ()
   (interactive)
-  (squeeze-send-string "%s playlist index +1" squeeze-control-current-player))
+  (squeeze-send-string "%s playlist index +1" (squeeze-control-current-player)))
 
 (defun squeeze-control-previous-track ()
   (interactive)
-  (squeeze-send-string "%s playlist index -1" squeeze-control-current-player))
+  (squeeze-send-string "%s playlist index -1" (squeeze-control-current-player)))
 
 (define-derived-mode squeeze-control-mode special-mode "SqueezeControl"
   "Major mode for controlling Squeezebox Servers.\\<squeeze-control-mode-map>")
@@ -612,7 +618,7 @@
 (defun squeeze-albums-load-album ()
   (interactive)
   (squeeze-send-string "%s playlistcontrol cmd:load album_id:%s"
-                       squeeze-control-current-player
+                       (squeeze-control-current-player)
                        (squeeze-album-id (tabulated-list-get-id))))
 
 (provide 'squeeze)
